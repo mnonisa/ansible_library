@@ -1,0 +1,62 @@
+- name: Setup Mullvad VPN
+  hosts: mullvad
+  become: True
+  tasks:
+    - name: Include app variables
+      include_vars: vars.yml
+
+    - name: Add Mullvad apt Key
+      apt_key:
+        url: https://repository.mullvad.net/deb/mullvad-keyring.asc
+        state: present
+
+    - name: Add Mullvad Repository
+      apt_repository:
+        repo: deb https://repository.mullvad.net/deb/stable jammy main
+        state: present
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: yes
+    
+    - name: Install Mullvad
+      package:
+        name: mullvad-vpn
+        state: present
+
+    - name: Send Mullvad status to file
+      ansible.builtin.shell: mullvad status >> /tmp/mullvad_status.txt
+
+    - name: Check if Mullvad already connected
+      ansible.builtin.lineinfile:
+        path: /tmp/mullvad_status.txt
+        line: 'Connected'
+        state: absent
+      check_mode: yes
+      changed_when: false
+      register: mullvad_connected
+
+    # doesn't run if mullvad already connected
+    - name: Login to Mullvad
+      ansible.builtin.shell: mullvad account login {{ mullvad_account_num }}
+      when: not mullvad_connected.found
+
+    - name: Set Mullvad location
+      ansible.builtin.shell: mullvad relay set location {{ mullvad_server_country }} {{ mullvad_server_state }}
+      when: not mullvad_connected.found
+
+    - name: Set auto connect to Mullvad ON
+      ansible.builtin.shell: mullvad auto-connect set on
+      when: not mullvad_connected.found
+
+    - name: Enable Mullvad LAN access
+      ansible.builtin.shell: mullvad lan set allow
+      when: not mullvad_connected.found
+
+    - name: Enable Mullvad Lockdown Mode
+      ansible.builtin.shell: mullvad lockdown-mode set on
+      when: not mullvad_connected.found
+
+    - name: Connect to Mullvad
+      ansible.builtin.shell: mullvad connect
+      when: not mullvad_connected.found

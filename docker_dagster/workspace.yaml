@@ -1,0 +1,10 @@
+load_from:
+  # - grpc_server:
+  #     host: "example_services"  # This will be the user code container name
+  #     port: 4000
+
+  - python_file:
+      relative_path: /opt/code_locations/project_name/main.py
+      working_directory: /opt/code_locations/project_name/
+      executable_path: python3
+      location_name: location_name

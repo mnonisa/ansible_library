@@ -1,0 +1,70 @@
+services:
+  dagster_infra_postgresql:
+    image: postgres:11
+    container_name: dagster_infra_postgresql
+    environment:
+      POSTGRES_USER: dagster
+      POSTGRES_PASSWORD: dagster
+      POSTGRES_DB: dagster
+    networks:
+      - dagster_infra_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dagster -d dagster"]
+      interval: 10s
+      timeout: 8s
+      retries: 4
+
+  dagster_infra_webserver:
+    image: dagster-server
+    container_name: dagster_infra_webserver
+    entrypoint:
+      - dagster-webserver
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3000"
+      - -w
+      - "/opt/dagster/dagster_home/workspace.yaml"
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+    environment:
+      DAGSTER_POSTGRES_USER: dagster
+      DAGSTER_POSTGRES_PASSWORD: dagster
+      DAGSTER_POSTGRES_DB: dagster
+      DAGSTER_HOME: /opt/dagster/dagster_home
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    networks:
+      - dagster_infra_network
+    depends_on:
+      dagster_infra_postgresql:
+        condition: service_healthy
+
+  dagster_infra_daemon:
+    image: dagster-server
+    container_name: dagster_infra_daemon
+    entrypoint:
+      - dagster-daemon
+      - run
+    restart: on-failure
+    environment:
+      DAGSTER_POSTGRES_USER: dagster
+      DAGSTER_POSTGRES_PASSWORD: dagster
+      DAGSTER_POSTGRES_DB: dagster
+      DAGSTER_HOME: /opt/dagster/dagster_home
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    networks:
+      - dagster_infra_network
+    depends_on:
+      dagster_infra_postgresql:
+        condition: service_healthy
+
+networks:
+  dagster_infra_network:
+    driver: bridge
+    name: dagster_infra_network

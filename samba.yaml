@@ -1,0 +1,32 @@
+- name: Setup Samba share
+  hosts: samba
+  become: True
+  tasks:
+    - name: Include app variables
+      include_vars: vars.yml
+
+    - name: Install cifs-utils
+      package:
+        name: cifs-utils
+        state: present
+
+    - name: Create dir to mount share to
+      ansible.builtin.file:
+        path: '{{ samba_mount_path }}'
+        mode: '0740'
+        state: directory
+
+    - name: Copy samba credentials file from src
+      ansible.builtin.copy:
+        src: '../secrets/.smbcredentials'
+        dest: /root/.smbcredentials
+        directory_mode: '0400'
+
+    - name: Update fstab to auto mount share
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: //{{ samba_server_host }}/{{ samba_mount_name }} {{ samba_mount_path }} cifs vers=3.0,credentials=/root/.smbcredentials
+        create: no
+
+    - name: Reboot machine to mount share
+      ansible.builtin.reboot:

@@ -1,0 +1,31 @@
+- name: Setup Dagster
+  hosts: dagster
+  become: True
+  tasks:
+    - name: Include app variables
+      include_vars: vars.yml
+    
+    - name: Copy dagster docker files
+      ansible.builtin.copy:
+        src: '../../docker_dagster/'  # assumes project/ansible/playbooks/this.yaml structure with project/docker_dagster/
+        dest: '{{ dagster_infra_files_path }}'
+        directory_mode: '0740'
+
+    # if you want have the code locations in the same project
+    # - name: Copy code location files
+    #   ansible.builtin.copy:
+    #     src: '../../code_locations/'  # assumes project/ansible/playbooks/this.yaml structure with project/code_locations/
+    #     dest: '{{ dagster_code_locations_files_path }}'
+    #     directory_mode: '0740'
+
+    - name: Build Dagster image
+      community.docker.docker_image_build:
+        name: dagster-server
+        path: '{{ dagster_infra_files_path }}'
+        dockerfile: Dockerfile
+        rebuild: always
+
+    - name: Run image
+      community.docker.docker_compose_v2:
+        project_src: dagster
+        state: present
